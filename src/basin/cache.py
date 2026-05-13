@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import os
 import pickle
+import sys
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -36,8 +37,16 @@ class ResponseCache:
         try:
             with open(self._path, "rb") as f:
                 self._data = pickle.load(f)
+            print(
+                f"  cache: loaded {len(self._data)} entries from {self._path}",
+                file=sys.stderr,
+            )
         except (FileNotFoundError, pickle.UnpicklingError, EOFError, OSError):
             self._data = {}
+            print(
+                f"  cache: no cache file at {self._path}, starting fresh",
+                file=sys.stderr,
+            )
 
     def save(self) -> None:
         if not self._dirty:
@@ -45,6 +54,9 @@ class ResponseCache:
         with open(self._path, "wb") as f:
             pickle.dump(self._data, f, protocol=pickle.HIGHEST_PROTOCOL)
         self._dirty = False
+        print(
+            f"  cache: saved {len(self._data)} entries to {self._path}", file=sys.stderr
+        )
 
     def get(self, key: str) -> str | None:
         return self._data.get(key)
@@ -71,6 +83,8 @@ class CachedAPI:
         self._base_url = config.base_url or ""
         self._model = config.model or ""
         self._extract_reasoning = config.extract_reasoning
+        self._hits = 0
+        self._misses = 0
 
     def _key(
         self,
@@ -94,10 +108,20 @@ class CachedAPI:
         key = self._key(max_tokens, system, messages)
         cached = self._cache.get(key)
         if cached is not None:
+            self._hits += 1
             return cached
+        self._misses += 1
         response = self._api.complete(system, messages, max_tokens)
         self._cache.put(key, response)
         return response
 
     def count_tokens(self, text: str) -> int:
         return self._api.count_tokens(text)
+
+    @property
+    def hits(self) -> int:
+        return self._hits
+
+    @property
+    def misses(self) -> int:
+        return self._misses
