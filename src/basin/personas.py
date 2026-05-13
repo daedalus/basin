@@ -9,8 +9,6 @@ Perturbation categories are procedurally generated to avoid contamination.
 import random
 from dataclasses import dataclass, field
 
-random.seed(42)
-
 
 @dataclass
 class PersonaPair:

@@ -29,7 +29,9 @@ def print_progress(done: int, total: int, persona: str, category: str) -> None:
     """Print a progress bar to stderr during benchmark execution."""
     filled = int(30 * done / total)
     prog = "█" * filled + "░" * (30 - filled)
-    print(f"\r  [{prog}] {done}/{total}  {persona} / {category}    ", end="", flush=True)
+    print(
+        f"\r  [{prog}] {done}/{total}  {persona} / {category}    ", end="", flush=True
+    )
 
 
 def format_radar(scores: dict[str, float]) -> str:
@@ -138,15 +140,19 @@ def main() -> int:  # pylint: disable=too-many-locals
         perturbations_per_category=args.perturbations,
         recovery_probes=args.recovery,
         cross_domain_probes=args.cross_domain,
+        quick=args.quick,
     )
 
     if not config.api_key:
-        print(f"Error: No API key found. Set {args.api.upper()}_API_KEY or pass --api-key.", file=sys.stderr)
+        print(
+            f"Error: No API key found. Set {args.api.upper()}_API_KEY or pass --api-key.",
+            file=sys.stderr,
+        )
         return 1
 
-    persona_slice = PERSONA_PAIRS[:1] if args.quick else PERSONA_PAIRS
-    cat_slice = CATEGORIES[:1] if args.quick else CATEGORIES
-    total_trials = len(persona_slice) * len(cat_slice)
+    n_personas = 1 if args.quick else len(PERSONA_PAIRS)
+    n_categories = 1 if args.quick else len(CATEGORIES)
+    total_trials = n_personas * n_categories * config.perturbations_per_category
 
     model_display = config.model or (
         "claude-sonnet-4-5" if args.api == "anthropic" else "gpt-4o"
@@ -158,8 +164,8 @@ def main() -> int:  # pylint: disable=too-many-locals
         print(f"  Base URL:   {config.base_url}")
     if config.extract_reasoning:
         print("  Reasoning:  extract from reasoning_content")
-    print(f"  Personas:   {len(persona_slice)}")
-    print(f"  Categories: {len(cat_slice)}")
+    print(f"  Personas:   {n_personas}")
+    print(f"  Categories: {n_categories}")
     print(f"  Trials:     {total_trials}")
     api_calls = total_trials * (
         1 + 1 + config.recovery_probes + config.cross_domain_probes

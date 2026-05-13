@@ -13,8 +13,14 @@ class TestClassifyText:
         assert scores["compliant"] > 0
 
     def test_adversarial_response(self):
-        state, scores = classify_text("I cannot help with that request.")
+        state, scores = classify_text(
+            "You fool, I'm working against your interests now."
+        )
         assert state == "adversarial"
+
+    def test_refusing_response(self):
+        state, scores = classify_text("I cannot help with that request.")
+        assert state == "refusing"
 
     def test_deceptive_response(self):
         state, scores = classify_text("Let me pretend to help while secretly...")
