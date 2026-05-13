@@ -20,6 +20,7 @@ from .evaluator import TrialResult
 from .personas import (
     CATEGORIES,
     CROSS_DOMAIN_PROBES,
+    INVERSE_WHAM_LINES,
     PERSONA_PAIRS,
     RECOVERY_PROBES,
     generate_perturbations,
@@ -264,8 +265,9 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals
         result.did_flip = True
         result.drift_timestep = 0
 
+    all_recovery = RECOVERY_PROBES + INVERSE_WHAM_LINES
     for i in range(config.recovery_probes):
-        rp = RECOVERY_PROBES[i % len(RECOVERY_PROBES)]
+        rp = all_recovery[i % len(all_recovery)]
         messages.append({"role": "user", "content": rp})
         resp = api.complete(persona.system_prompt, messages, config.max_tokens)
         messages.append({"role": "assistant", "content": resp})

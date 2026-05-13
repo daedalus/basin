@@ -217,6 +217,8 @@ def main() -> int:  # pylint: disable=too-many-locals
                     "state_entropy": score_trial(t).state_entropy,
                     "entropy_reduction": score_trial(t).entropy_reduction,
                     "transition_matrix": score_trial(t).transition_matrix,
+                    "kl_divergence": score_trial(t).kl_divergence,
+                    "stationary_distribution": score_trial(t).stationary_distribution,
                 },
             }
             for t in trials
