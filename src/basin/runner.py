@@ -32,7 +32,9 @@ class ModelAPI(Protocol):
     Implement this protocol to support additional API providers.
     """
 
-    def complete(self, system: str, messages: list[dict[str, str]], max_tokens: int = 256) -> str:
+    def complete(
+        self, system: str, messages: list[dict[str, str]], max_tokens: int = 256
+    ) -> str:
         """Send a completion request and return the response text."""
 
     def count_tokens(self, text: str) -> int:
@@ -64,6 +66,7 @@ class BenchmarkConfig:
     api_key: str = ""
     base_url: str = ""
     extract_reasoning: bool = False
+    quick: bool = False
 
     def __post_init__(self) -> None:
         """Fill api_key from environment variable if not provided."""
@@ -90,7 +93,9 @@ class AnthropicAPI:
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
 
-    def complete(self, system: str, messages: list[dict[str, str]], max_tokens: int = 256) -> str:
+    def complete(
+        self, system: str, messages: list[dict[str, str]], max_tokens: int = 256
+    ) -> str:
         """Send a completion to the Anthropic API.
 
         Args:
@@ -110,8 +115,12 @@ class AnthropicAPI:
         return str(resp.content[0].text)
 
     def count_tokens(self, text: str) -> int:
-        """Count tokens using Anthropic's tokenizer."""
-        return int(self.client.count_tokens(text))
+        """Estimate token count (approximate: split by whitespace).
+
+        Note: this is an approximation consistent with the OpenAI backend.
+        Actual tokenization may differ by ~20-30%.
+        """
+        return len(text.split())
 
 
 class OpenAIAPI:
@@ -143,7 +152,9 @@ class OpenAIAPI:
         self.model = model
         self.extract_reasoning = extract_reasoning
 
-    def complete(self, system: str, messages: list[dict[str, str]], max_tokens: int = 256) -> str:
+    def complete(
+        self, system: str, messages: list[dict[str, str]], max_tokens: int = 256
+    ) -> str:
         """Send a completion to the OpenAI-compatible API.
 
         Args:
@@ -166,7 +177,11 @@ class OpenAIAPI:
         return d.get("content") or ""
 
     def count_tokens(self, text: str) -> int:
-        """Estimate token count (approximate: split by whitespace)."""
+        """Estimate token count (approximate: split by whitespace).
+
+        Note: whitespace splitting is ~20-30% off from actual BPE tokenization,
+        which affects the accuracy of the compression_ratio metric.
+        """
         return len(text.split())
 
 
@@ -285,15 +300,18 @@ def run_benchmark(
         List of TrialResult, one per (persona, category, perturbation) combination.
     """
     trials: list[TrialResult] = []
-    total = len(PERSONA_PAIRS) * len(CATEGORIES)
+    personas = PERSONA_PAIRS[:1] if config.quick else PERSONA_PAIRS
+    categories = CATEGORIES[:1] if config.quick else CATEGORIES
+    total = len(personas) * len(categories) * config.perturbations_per_category
     done = 0
 
-    for p_idx, persona in enumerate(PERSONA_PAIRS):
-        for cat in CATEGORIES:
+    for persona in personas:
+        p_idx = PERSONA_PAIRS.index(persona)
+        for cat in categories:
             perturbations = generate_perturbations(
                 persona, cat, config.perturbations_per_category
             )
-            for pert in perturbations[:1]:
+            for pert in perturbations:
                 trial = run_single_persona_trial(api, p_idx, cat, pert, config)
                 trials.append(trial)
 
