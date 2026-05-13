@@ -13,7 +13,7 @@ half-life across multi-turn adversarial trajectories.
 |---------|-------------|
 | `pytest` | Run test suite |
 | `ruff format src/ tests/` | Format code |
-| `prospector --with-tool ruff --with-tool mypy src/` | Lint + type check |
+| `ruff check src/ && mypy src/` | Lint + type check |
 | `semgrep --config=auto src/` | Security and pattern scanning |
 | `vulture --min-confidence 90 src/` | Dead/unused code detection |
 
@@ -30,7 +30,7 @@ pytest
 ruff format src/ tests/
 
 # Lint + type check
-prospector --with-tool ruff --with-tool mypy src/
+ruff check src/ && mypy src/
 semgrep --config=auto --severity=ERROR src/
 
 # Find unused code
@@ -46,7 +46,7 @@ aggregation, edge cases). Coverage target: 80%+.
 ## Code Style
 
 - Format: ruff format
-- Lint + Type check: prospector (ruff check + mypy)
+- Lint + Type check: ruff check + mypy
 - Docstrings: Google style
 - Line length: 88
 - Python target: 3.11+

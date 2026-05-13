@@ -20,6 +20,7 @@ dev = [
     "mypy",
     "hatch",
     "pip-api",
+    "impactguard",
 ]
 test = [
     "pytest",
@@ -28,7 +29,6 @@ test = [
     "hypothesis",
 ]
 lint = [
-    "prospector[with_ruff,with_mypy]",
     "semgrep",
     "vulture",
 ]
@@ -67,19 +67,6 @@ python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_ignores = true
-
-[tool.prospector]
-output-format = "text"
-strictness = "medium"
-test-warnings = false
-
-[tool.prospector.tools]
-ruff = true
-mypy = true
-pylint = true
-pyflakes = false
-pycodestyle = false
-mccabe = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

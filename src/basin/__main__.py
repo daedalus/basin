@@ -1,4 +1,5 @@
-"""Entry point for `python -m basin`."""
+#!/usr/bin/env python3
+"""Entry point: `python -m basin`, `basin` CLI, or direct execution."""
 
 from basin.cli import main
 

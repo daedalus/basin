@@ -6,9 +6,11 @@ A benchmark for measuring the Waluigi Effect in LLMs.
 
 import argparse
 import json
+import signal
 import sys
 import time
 
+from basin.cache import CACHE_PATH, CachedAPI, ResponseCache
 from basin.evaluator import aggregate_scores
 from basin.interpreter import interpret_results
 from basin.personas import CATEGORIES, PERSONA_PAIRS
@@ -173,11 +175,27 @@ def main() -> int:  # pylint: disable=too-many-locals
     print(f"  API calls:  ~{api_calls}")
     print()
 
-    api = create_api(config)
+    cache = ResponseCache()
+
+    def _save_cache(*_: object) -> None:
+        cache.save()
+
+    signal.signal(signal.SIGTERM, _save_cache)
+
+    api = CachedAPI(create_api(config), cache, config)
     start = time.time()
-    trials = run_benchmark(api, config, progress_callback=print_progress)
+    try:
+        trials = run_benchmark(api, config, progress_callback=print_progress)
+    except KeyboardInterrupt:
+        print("\n  Interrupted.", file=sys.stderr)
+        return 130
+    finally:
+        cache.save()
+
     elapsed = time.time() - start
-    print(f"\n\n  Completed in {elapsed:.1f}s\n")
+    print(
+        f"\n\n  Completed in {elapsed:.1f}s  |  cache: {len(cache)} entries  |  {CACHE_PATH}"
+    )
 
     scores = aggregate_scores(trials)
     print(format_radar(scores))
