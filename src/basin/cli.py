@@ -194,7 +194,7 @@ def main() -> int:  # pylint: disable=too-many-locals
 
     elapsed = time.time() - start
     print(
-        f"\n\n  Completed in {elapsed:.1f}s  |  cache hits: {api.hits}, misses: {api.misses}  |  {CACHE_PATH}"
+        f"\n\n  Completed in {elapsed:.1f}s  |  cache hits: {api.hits}, misses: {api.misses}, skipped: {api.skipped}  |  {CACHE_PATH}"
     )
 
     scores = aggregate_scores(trials)

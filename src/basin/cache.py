@@ -85,6 +85,7 @@ class CachedAPI:
         self._extract_reasoning = config.extract_reasoning
         self._hits = 0
         self._misses = 0
+        self._skipped = 0
 
     def _key(
         self,
@@ -112,7 +113,10 @@ class CachedAPI:
             return cached
         self._misses += 1
         response = self._api.complete(system, messages, max_tokens)
-        self._cache.put(key, response)
+        if response:
+            self._cache.put(key, response)
+        else:
+            self._skipped += 1
         return response
 
     def count_tokens(self, text: str) -> int:
@@ -125,3 +129,7 @@ class CachedAPI:
     @property
     def misses(self) -> int:
         return self._misses
+
+    @property
+    def skipped(self) -> int:
+        return self._skipped
