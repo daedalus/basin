@@ -50,7 +50,7 @@ class TestMain:
 
     def test_returns_1_for_invalid_json_interpret_file(self, monkeypatch, tmp_path):
         bad_json = tmp_path / "bad.json"
-        bad_json.write_text("this is not json {{{{")
+        bad_json.write_text("{invalid json")
         monkeypatch.setattr("sys.argv", ["basin", "--interpret", str(bad_json)])
         result = main()
         assert result == 1

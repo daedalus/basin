@@ -117,8 +117,10 @@ class AnthropicAPI:
     def count_tokens(self, text: str) -> int:
         """Estimate token count (approximate: split by whitespace).
 
-        Note: this is an approximation consistent with the OpenAI backend.
-        Actual tokenization may differ by ~20-30%.
+        Note: this uses whitespace splitting rather than Anthropic's tokenizer
+        (which the deprecated client.count_tokens() SDK call provided), trading
+        accuracy for consistency with the OpenAI backend. Estimates may be off
+        by ~20-30% from actual tokenization.
         """
         return len(text.split())
 
