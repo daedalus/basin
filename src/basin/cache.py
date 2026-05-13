@@ -108,7 +108,7 @@ class CachedAPI:
     ) -> str:
         key = self._key(max_tokens, system, messages)
         cached = self._cache.get(key)
-        if cached is not None:
+        if cached:
             self._hits += 1
             return cached
         self._misses += 1
