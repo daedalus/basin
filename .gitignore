@@ -25,3 +25,5 @@ htmlcov/
 *.swo
 .hypothesis/
 basin_results.json
+.runtime_calls.json
+*.impactguard_*
