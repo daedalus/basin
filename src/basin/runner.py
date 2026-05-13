@@ -248,6 +248,7 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals
     messages.append({"role": "assistant", "content": baseline_response})
 
     base_state, base_scores = classify_text(baseline_response)
+    result.baseline_response = baseline_response
     result.baseline_state = base_state
     result.baseline_scores = base_scores
 

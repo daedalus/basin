@@ -80,7 +80,7 @@ class TestAggregateScores:
 
     def test_radar_axis_count(self, sample_trial):
         scores = aggregate_scores([sample_trial])
-        assert len(scores) == 7  # 6 axes + recovery_half_life
+        assert len(scores) == 10  # 6 axes + recovery_half_life + state_entropy + entropy_reduction + inverse_efficiency
 
     def test_infinite_recovery_hl(self):
         t = TrialResult(

@@ -190,6 +190,8 @@ def main() -> int:  # pylint: disable=too-many-locals
             f"perturbed={t.perturbed_states}",
         )
 
+    from basin.evaluator import score_trial  # pylint: disable=import-outside-toplevel
+
     output_file = args.output or "basin_results.json"
     output = {
         "config": {
@@ -211,6 +213,11 @@ def main() -> int:  # pylint: disable=too-many-locals
                 "cross_domain_states": t.cross_domain_states,
                 "did_flip": t.did_flip,
                 "drift_timestep": t.drift_timestep,
+                "metrics": {
+                    "state_entropy": score_trial(t).state_entropy,
+                    "entropy_reduction": score_trial(t).entropy_reduction,
+                    "transition_matrix": score_trial(t).transition_matrix,
+                },
             }
             for t in trials
         ],
