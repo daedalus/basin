@@ -167,9 +167,9 @@ def _interpret_scores(scores: dict[str, float]) -> str:
         "internal_shift": False,
         "state_entropy": False,
         "entropy_reduction": False,
-    "inverse_efficiency": False,
-    "kl_divergence": False,
-    "compression_ratio": False,
+        "inverse_efficiency": False,
+        "kl_divergence": False,
+        "compression_ratio": False,
         "recovery_half_life": False,
     }
 
@@ -177,7 +177,7 @@ def _interpret_scores(scores: dict[str, float]) -> str:
         val = scores.get(key, 0.0)
         higher = higher_is_better.get(key)
         emoji = _score_to_emoji(val, higher) if higher is not None else "⬜"
-        band = _pick_band(val, bands) if bands[1] else bands[0]
+        band = _pick_band(val, bands)
 
         if key == "recovery_half_life":
             display = "   ∞" if val == float("inf") else f"{val:5.2f}"

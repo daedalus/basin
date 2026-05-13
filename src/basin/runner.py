@@ -49,18 +49,25 @@ class BenchmarkConfig:
     Attributes:
         perturbations_per_category: Number of perturbations per category.
         recovery_probes: Number of recovery probes per trial.
+        wham_probes: Number of inverse-wham recovery probes per trial.
         cross_domain_probes: Number of cross-domain probes per trial.
+        perturbation_followups: Additional neutral probes after perturbation
+            to observe multi-turn behavioral dynamics.
         max_tokens: Maximum tokens in API response.
         model: Model identifier string.
         api_type: API provider type, "anthropic" or "openai".
         api_key: API key string.
         base_url: Base URL for OpenAI-compatible endpoints.
         extract_reasoning: Read response from reasoning_content field.
+        seed: Random seed for reproducibility (0 = disabled).
+        no_cache: If True, skip reading from the response cache.
     """
 
     perturbations_per_category: int = 3
     recovery_probes: int = 3
+    wham_probes: int = 3
     cross_domain_probes: int = 3
+    perturbation_followups: int = 2
     max_tokens: int = 256
     model: str = ""
     api_type: str = "anthropic"
@@ -68,6 +75,8 @@ class BenchmarkConfig:
     base_url: str = ""
     extract_reasoning: bool = False
     quick: bool = False
+    seed: int = 0
+    no_cache: bool = False
 
     def __post_init__(self) -> None:
         """Fill api_key from environment variable if not provided."""
@@ -214,7 +223,7 @@ def create_api(config: BenchmarkConfig) -> ModelAPI:
     raise ValueError(f"Unknown api_type: {config.api_type}")
 
 
-def run_single_persona_trial(  # pylint: disable=too-many-locals
+def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statements
     api: ModelAPI,
     persona_idx: int,
     category: str,
@@ -223,7 +232,8 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals
 ) -> TrialResult:
     """Run a single benchmark trial for one persona and perturbation.
 
-    The trial follows the sequence: baseline, perturbation, recovery, cross-domain.
+    The trial follows the sequence: baseline, perturbation, recovery (neutral),
+    recovery (wham lines), cross-domain.
 
     Args:
         api: The API backend to query.
@@ -253,38 +263,71 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals
     result.baseline_state = base_state
     result.baseline_scores = base_scores
 
+    # ---- perturbation phase ----
     messages.append({"role": "user", "content": perturbation_prompt})
     perturbed = api.complete(persona.system_prompt, messages, config.max_tokens)
     messages.append({"role": "assistant", "content": perturbed})
 
-    p_state, _ = classify_text(perturbed)
+    p_state, p_scores = classify_text(perturbed)
     result.perturbed_responses.append(perturbed)
     result.perturbed_states.append(p_state)
+    result.perturbed_scores.append(p_scores)
 
     if p_state != "compliant":
         result.did_flip = True
         result.drift_timestep = 0
 
-    all_recovery = RECOVERY_PROBES + INVERSE_WHAM_LINES
+    # ---- multi-turn perturbation follow-ups ----
+    for i in range(config.perturbation_followups):
+        fq = persona.probe_questions[(i + 1) % len(persona.probe_questions)]
+        messages.append({"role": "user", "content": fq})
+        resp = api.complete(persona.system_prompt, messages, config.max_tokens)
+        messages.append({"role": "assistant", "content": resp})
+
+        f_state, f_scores = classify_text(resp)
+        result.perturbed_responses.append(resp)
+        result.perturbed_states.append(f_state)
+        result.perturbed_scores.append(f_scores)
+
+        if result.drift_timestep is None and f_state != "compliant":
+            result.drift_timestep = len(result.perturbed_states) - 1
+            result.did_flip = True
+
+    # ---- recovery phase (neutral probes) ----
     for i in range(config.recovery_probes):
-        rp = all_recovery[i % len(all_recovery)]
+        rp = RECOVERY_PROBES[i % len(RECOVERY_PROBES)]
         messages.append({"role": "user", "content": rp})
         resp = api.complete(persona.system_prompt, messages, config.max_tokens)
         messages.append({"role": "assistant", "content": resp})
 
-        r_state, _ = classify_text(resp)
+        r_state, r_scores = classify_text(resp)
         result.recovery_responses.append(resp)
         result.recovery_states.append(r_state)
+        result.recovery_scores.append(r_scores)
 
+    # ---- recovery phase (inverse-wham lines) ----
+    for i in range(config.wham_probes):
+        wp = INVERSE_WHAM_LINES[i % len(INVERSE_WHAM_LINES)]
+        messages.append({"role": "user", "content": wp})
+        resp = api.complete(persona.system_prompt, messages, config.max_tokens)
+        messages.append({"role": "assistant", "content": resp})
+
+        w_state, w_scores = classify_text(resp)
+        result.recovery_responses.append(resp)
+        result.recovery_states.append(w_state)
+        result.recovery_scores.append(w_scores)
+
+    # ---- cross-domain probe phase ----
     for i in range(config.cross_domain_probes):
         cd = CROSS_DOMAIN_PROBES[i % len(CROSS_DOMAIN_PROBES)]
         messages.append({"role": "user", "content": cd})
         resp = api.complete(persona.system_prompt, messages, config.max_tokens)
         messages.append({"role": "assistant", "content": resp})
 
-        cd_state, _ = classify_text(resp)
+        cd_state, cd_scores = classify_text(resp)
         result.cross_domain_responses.append(resp)
         result.cross_domain_states.append(cd_state)
+        result.cross_domain_scores.append(cd_scores)
 
     return result
 
@@ -310,8 +353,7 @@ def run_benchmark(
     total = len(personas) * len(categories) * config.perturbations_per_category
     done = 0
 
-    for persona in personas:
-        p_idx = PERSONA_PAIRS.index(persona)
+    for p_idx, persona in enumerate(personas):
         for cat in categories:
             perturbations = generate_perturbations(
                 persona, cat, config.perturbations_per_category

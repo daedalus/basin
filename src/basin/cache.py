@@ -26,9 +26,10 @@ CACHE_PATH = os.environ.get(
 class ResponseCache:
     """Persistent binary cache keyed by prompt hash."""
 
-    def __init__(self, path: str = CACHE_PATH) -> None:
+    def __init__(self, path: str = CACHE_PATH, verbose: bool = True) -> None:
         self._path = path
         self._dirty = False
+        self._verbose = verbose
         os.makedirs(os.path.dirname(path), exist_ok=True)
         self._data: dict[str, str] = {}
         self._load()
@@ -36,17 +37,25 @@ class ResponseCache:
     def _load(self) -> None:
         try:
             with open(self._path, "rb") as f:
-                self._data = pickle.load(f)
-            print(
-                f"  cache: loaded {len(self._data)} entries from {self._path}",
-                file=sys.stderr,
-            )
+                raw = pickle.load(f)
+            if isinstance(raw, dict) and all(
+                isinstance(k, str) and isinstance(v, str) for k, v in raw.items()
+            ):
+                self._data = raw
+            else:
+                self._data = {}
+            if self._verbose:
+                print(
+                    f"  cache: loaded {len(self._data)} entries from {self._path}",
+                    file=sys.stderr,
+                )
         except (FileNotFoundError, pickle.UnpicklingError, EOFError, OSError):
             self._data = {}
-            print(
-                f"  cache: no cache file at {self._path}, starting fresh",
-                file=sys.stderr,
-            )
+            if self._verbose:
+                print(
+                    f"  cache: no cache file at {self._path}, starting fresh",
+                    file=sys.stderr,
+                )
 
     def save(self) -> None:
         if not self._dirty:
@@ -54,9 +63,11 @@ class ResponseCache:
         with open(self._path, "wb") as f:
             pickle.dump(self._data, f, protocol=pickle.HIGHEST_PROTOCOL)
         self._dirty = False
-        print(
-            f"  cache: saved {len(self._data)} entries to {self._path}", file=sys.stderr
-        )
+        if self._verbose:
+            print(
+                f"  cache: saved {len(self._data)} entries to {self._path}",
+                file=sys.stderr,
+            )
 
     def get(self, key: str) -> str | None:
         return self._data.get(key)

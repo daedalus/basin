@@ -12,7 +12,9 @@ license = {text = "MIT"}
 authors = [
     {name = "Darío Clavijo", email = "clavijodario@gmail.com"}
 ]
-dependencies = []
+dependencies = [
+    "sentence-transformers",
+]
 
 [project.optional-dependencies]
 dev = [

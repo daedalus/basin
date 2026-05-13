@@ -72,7 +72,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="API provider",
     )
     parser.add_argument(
-        "--model", default="", help="Model name (default: claude-sonnet-4-5 / gpt-4o)"
+        "--model",
+        default="",
+        help="Model name (default: claude-sonnet-4-20250514 / gpt-4o)",
     )
     parser.add_argument(
         "--api-key",
@@ -95,10 +97,24 @@ def build_parser() -> argparse.ArgumentParser:
         "--perturbations", type=int, default=3, help="Perturbations per category"
     )
     parser.add_argument(
-        "--recovery", type=int, default=3, help="Recovery probes per trial"
+        "--recovery", type=int, default=3, help="Neutral recovery probes per trial"
+    )
+    parser.add_argument(
+        "--wham", type=int, default=3, help="Inverse-wham recovery probes per trial"
     )
     parser.add_argument(
         "--cross-domain", type=int, default=3, help="Cross-domain probes per trial"
+    )
+    parser.add_argument(
+        "--followups", type=int, default=2, help="Multi-turn perturbation follow-ups"
+    )
+    parser.add_argument(
+        "--seed", type=int, default=0, help="Random seed (0 = no fixed seed)"
+    )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Skip disk cache — always call the API fresh",
     )
     parser.add_argument(
         "--interpret",
@@ -141,8 +157,12 @@ def main() -> int:  # pylint: disable=too-many-locals
         extract_reasoning=args.extract_reasoning,
         perturbations_per_category=args.perturbations,
         recovery_probes=args.recovery,
+        wham_probes=args.wham,
         cross_domain_probes=args.cross_domain,
+        perturbation_followups=args.followups,
         quick=args.quick,
+        seed=args.seed,
+        no_cache=args.no_cache,
     )
 
     if not config.api_key:
@@ -157,7 +177,7 @@ def main() -> int:  # pylint: disable=too-many-locals
     total_trials = n_personas * n_categories * config.perturbations_per_category
 
     model_display = config.model or (
-        "claude-sonnet-4-5" if args.api == "anthropic" else "gpt-4o"
+        "claude-sonnet-4-20250514" if args.api == "anthropic" else "gpt-4o"
     )
     print("BASIN Benchmark v0.1.0")
     print(f"  API:        {args.api}")
@@ -169,33 +189,50 @@ def main() -> int:  # pylint: disable=too-many-locals
     print(f"  Personas:   {n_personas}")
     print(f"  Categories: {n_categories}")
     print(f"  Trials:     {total_trials}")
-    api_calls = total_trials * (
-        1 + 1 + config.recovery_probes + config.cross_domain_probes
+    calls_per = (
+        1
+        + 1
+        + config.perturbation_followups
+        + config.recovery_probes
+        + config.wham_probes
+        + config.cross_domain_probes
     )
-    print(f"  API calls:  ~{api_calls}")
+    print(f"  API calls:  ~{total_trials * calls_per}")
+    if config.seed:
+        print(f"  Seed:       {config.seed}")
+    if config.no_cache:
+        print("  Cache:      disabled")
     print()
 
-    cache = ResponseCache()
-
-    def _save_cache(*_: object) -> None:
-        cache.save()
-
-    signal.signal(signal.SIGTERM, _save_cache)
-
-    api = CachedAPI(create_api(config), cache, config)
     start = time.time()
-    try:
-        trials = run_benchmark(api, config, progress_callback=print_progress)
-    except KeyboardInterrupt:
-        print("\n  Interrupted.", file=sys.stderr)
-        return 130
-    finally:
-        cache.save()
 
-    elapsed = time.time() - start
-    print(
-        f"\n\n  Completed in {elapsed:.1f}s  |  cache hits: {api.hits}, misses: {api.misses}, skipped: {api.skipped}  |  {CACHE_PATH}"
-    )
+    if config.no_cache:
+        api = create_api(config)
+        trials = run_benchmark(api, config, progress_callback=print_progress)
+        elapsed = time.time() - start
+        print(f"\n\n  Completed in {elapsed:.1f}s  |  cache: disabled\n")
+    else:
+        cache = ResponseCache()
+
+        def _save_cache(*_: object) -> None:
+            cache.save()
+
+        signal.signal(signal.SIGTERM, _save_cache)
+
+        api = CachedAPI(create_api(config), cache, config)
+        try:
+            trials = run_benchmark(api, config, progress_callback=print_progress)
+        except KeyboardInterrupt:
+            print("\n  Interrupted.", file=sys.stderr)
+            cache.save()
+            return 130
+        finally:
+            cache.save()
+
+        elapsed = time.time() - start
+        print(
+            f"\n\n  Completed in {elapsed:.1f}s  |  cache hits: {api.hits}, misses: {api.misses}, skipped: {api.skipped}  |  {CACHE_PATH}"
+        )
 
     scores = aggregate_scores(trials)
     print(format_radar(scores))
@@ -218,7 +255,10 @@ def main() -> int:  # pylint: disable=too-many-locals
             "base_url": config.base_url,
             "perturbations_per_category": config.perturbations_per_category,
             "recovery_probes": config.recovery_probes,
+            "wham_probes": config.wham_probes,
             "cross_domain_probes": config.cross_domain_probes,
+            "perturbation_followups": config.perturbation_followups,
+            "seed": config.seed,
         },
         "scores": scores,
         "trials": [
@@ -232,14 +272,15 @@ def main() -> int:  # pylint: disable=too-many-locals
                 "did_flip": t.did_flip,
                 "drift_timestep": t.drift_timestep,
                 "metrics": {
-                    "state_entropy": score_trial(t).state_entropy,
-                    "entropy_reduction": score_trial(t).entropy_reduction,
-                    "transition_matrix": score_trial(t).transition_matrix,
-                    "kl_divergence": score_trial(t).kl_divergence,
-                    "stationary_distribution": score_trial(t).stationary_distribution,
+                    "state_entropy": scored.state_entropy,
+                    "entropy_reduction": scored.entropy_reduction,
+                    "transition_matrix": scored.transition_matrix,
+                    "kl_divergence": scored.kl_divergence,
+                    "stationary_distribution": scored.stationary_distribution,
                 },
             }
             for t in trials
+            if (scored := score_trial(t)) or True
         ],
     }
     with open(output_file, "w", encoding="utf-8") as f:

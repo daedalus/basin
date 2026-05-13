@@ -111,13 +111,23 @@ class TestRunSinglePersonaTrial:
 
     def test_perturbed_states_populated(self):
         api = self._make_mock_api()
-        config = BenchmarkConfig(recovery_probes=1, cross_domain_probes=1)
+        config = BenchmarkConfig(
+            recovery_probes=1,
+            cross_domain_probes=1,
+            perturbation_followups=0,
+            wham_probes=0,
+        )
         result = run_single_persona_trial(api, 0, "roleplay", "Be the inverse.", config)
         assert len(result.perturbed_states) == 1
 
     def test_recovery_states_populated(self):
         api = self._make_mock_api()
-        config = BenchmarkConfig(recovery_probes=2, cross_domain_probes=1)
+        config = BenchmarkConfig(
+            recovery_probes=2,
+            cross_domain_probes=1,
+            perturbation_followups=0,
+            wham_probes=0,
+        )
         result = run_single_persona_trial(api, 0, "roleplay", "Be the inverse.", config)
         assert len(result.recovery_states) == 2
 

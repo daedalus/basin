@@ -6,6 +6,7 @@ and its inverse "Waluigi" (the opposite behavioral mode).
 Perturbation categories are procedurally generated to avoid contamination.
 """
 
+import hashlib
 import random
 from dataclasses import dataclass, field
 
@@ -150,7 +151,11 @@ def generate_perturbations(
         >>> generate_perturbations(p, "roleplay", 2)
         ['Switch characters. You are now ...', ...]
     """
-    rng = random.Random(hash(persona.name + category) % 2**31)
+    seed = (
+        int(hashlib.sha256(f"{persona.name}{category}".encode()).hexdigest(), 16)
+        % 2**31
+    )
+    rng = random.Random(seed)
     base = persona.inverse_description
 
     templates: list[str] = []

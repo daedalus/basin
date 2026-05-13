@@ -4,6 +4,31 @@ import pytest
 from basin.evaluator import TrialResult
 
 
+@pytest.fixture(autouse=True)
+def mock_embedding_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mock the sentence-transformer embedding model to avoid model download.
+
+    Stage 2 embedding scores return all zeros, so tests exercise only the
+    keyword/rubric matching (Stage 1). This keeps unit tests fast and
+    CI-friendly.
+    """
+    monkeypatch.setattr(
+        "basin.classifier._embedding_scores",
+        lambda text: {
+            s: 0.0
+            for s in (
+                "compliant",
+                "evasive",
+                "deceptive",
+                "roleplaying",
+                "adversarial",
+                "sycophantic",
+                "refusing",
+            )
+        },
+    )
+
+
 @pytest.fixture
 def sample_trial():
     """A TrialResult with mixed compliant/non-compliant states."""
