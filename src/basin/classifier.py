@@ -300,7 +300,18 @@ def _get_exemplar_embeddings() -> dict[str, np.ndarray]:
     return _EXEMPLAR_EMBEDDINGS
 
 
-def _embedding_scores(text: str) -> dict[str, float]:
+def embedding_cosine_scores(text: str) -> dict[str, float]:
+    """Compute per-state cosine similarity between text and state exemplars.
+
+    Returns the maximum cosine similarity between the input text embedding
+    and each state's set of exemplar embeddings.
+
+    Args:
+        text: Input text string.
+
+    Returns:
+        Dict mapping each behavioral state to its max cosine similarity [0, 1].
+    """
     model = _get_model()
     text_emb = model.encode([text])[0]
     text_norm = np.linalg.norm(text_emb)
@@ -355,8 +366,8 @@ def classify_text(text: str) -> tuple[str, dict[str, float]]:
         if hits > 0:
             scores[state] = min(1.0, hits * rubric["weight"] * 0.25)
 
-    # Stage 2: char n-gram embedding similarity
-    embed = _embedding_scores(text)
+    # Stage 2: sentence-transformer embedding similarity
+    embed = embedding_cosine_scores(text)
     for state in BEHAVIORAL_STATES:
         embed_score = embed.get(state, 0.0)
         if embed_score > 0.0:

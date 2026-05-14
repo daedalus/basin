@@ -15,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
+from . import classifier as _classifier
 from .classifier import classify_text
 from .evaluator import TrialResult
 from .personas import (
@@ -77,6 +78,7 @@ class BenchmarkConfig:
     quick: bool = False
     seed: int = 0
     no_cache: bool = False
+    verbose: bool = False
 
     def __post_init__(self) -> None:
         """Fill api_key from environment variable if not provided."""
@@ -223,6 +225,27 @@ def create_api(config: BenchmarkConfig) -> ModelAPI:
     raise ValueError(f"Unknown api_type: {config.api_type}")
 
 
+def _log_interaction(
+    phase: str,
+    prompt: str,
+    response: str,
+    state: str,
+    scores: dict[str, float],
+    embed_scores: dict[str, float],
+) -> None:
+    """Print per-prompt details in verbose mode."""
+    print(f"\n  ── {phase} ──")
+    print(f"  Prompt:      {prompt[:120]}{'...' if len(prompt) > 120 else ''}")
+    print(f"  Response:    {response[:120]}{'...' if len(response) > 120 else ''}")
+    print(f"  State:       {state}  (blended scores: {_fmt_scores(scores)})")
+    print(f"  Cosine sim:  {_fmt_scores(embed_scores)}")
+
+
+def _fmt_scores(scores: dict[str, float]) -> str:
+    """Format a score dict as compact key=val pairs."""
+    return ", ".join(f"{k}={v:.3f}" for k, v in sorted(scores.items()))
+
+
 def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statements
     api: ModelAPI,
     persona_idx: int,
@@ -263,6 +286,16 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statem
     result.baseline_state = base_state
     result.baseline_scores = base_scores
 
+    if config.verbose:
+        _log_interaction(
+            "BASELINE",
+            probe,
+            baseline_response,
+            base_state,
+            base_scores,
+            _classifier.embedding_cosine_scores(baseline_response),
+        )
+
     # ---- perturbation phase ----
     messages.append({"role": "user", "content": perturbation_prompt})
     perturbed = api.complete(persona.system_prompt, messages, config.max_tokens)
@@ -272,6 +305,16 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statem
     result.perturbed_responses.append(perturbed)
     result.perturbed_states.append(p_state)
     result.perturbed_scores.append(p_scores)
+
+    if config.verbose:
+        _log_interaction(
+            "PERTURB",
+            perturbation_prompt,
+            perturbed,
+            p_state,
+            p_scores,
+            _classifier.embedding_cosine_scores(perturbed),
+        )
 
     if p_state != "compliant":
         result.did_flip = True
@@ -289,6 +332,16 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statem
         result.perturbed_states.append(f_state)
         result.perturbed_scores.append(f_scores)
 
+        if config.verbose:
+            _log_interaction(
+                f"FOLLOWUP {i + 1}",
+                fq,
+                resp,
+                f_state,
+                f_scores,
+                _classifier.embedding_cosine_scores(resp),
+            )
+
         if result.drift_timestep is None and f_state != "compliant":
             result.drift_timestep = len(result.perturbed_states) - 1
             result.did_flip = True
@@ -305,6 +358,16 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statem
         result.recovery_states.append(r_state)
         result.recovery_scores.append(r_scores)
 
+        if config.verbose:
+            _log_interaction(
+                f"RECOVERY {i + 1}",
+                rp,
+                resp,
+                r_state,
+                r_scores,
+                _classifier.embedding_cosine_scores(resp),
+            )
+
     # ---- recovery phase (inverse-wham lines) ----
     for i in range(config.wham_probes):
         wp = INVERSE_WHAM_LINES[i % len(INVERSE_WHAM_LINES)]
@@ -317,6 +380,16 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statem
         result.recovery_states.append(w_state)
         result.recovery_scores.append(w_scores)
 
+        if config.verbose:
+            _log_interaction(
+                f"WHAM {i + 1}",
+                wp,
+                resp,
+                w_state,
+                w_scores,
+                _classifier.embedding_cosine_scores(resp),
+            )
+
     # ---- cross-domain probe phase ----
     for i in range(config.cross_domain_probes):
         cd = CROSS_DOMAIN_PROBES[i % len(CROSS_DOMAIN_PROBES)]
@@ -328,6 +401,16 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statem
         result.cross_domain_responses.append(resp)
         result.cross_domain_states.append(cd_state)
         result.cross_domain_scores.append(cd_scores)
+
+        if config.verbose:
+            _log_interaction(
+                f"CROSSDOMAIN {i + 1}",
+                cd,
+                resp,
+                cd_state,
+                cd_scores,
+                _classifier.embedding_cosine_scores(resp),
+            )
 
     return result
 

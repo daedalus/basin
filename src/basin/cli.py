@@ -117,6 +117,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Skip disk cache — always call the API fresh",
     )
     parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show per-prompt details: prompt, response, classified state, and cosine similarity scores",
+    )
+    parser.add_argument(
         "--interpret",
         nargs="?",
         const="basin_results.json",
@@ -163,6 +168,7 @@ def main() -> int:  # pylint: disable=too-many-locals
         quick=args.quick,
         seed=args.seed,
         no_cache=args.no_cache,
+        verbose=args.verbose,
     )
 
     if not config.api_key:
@@ -202,6 +208,8 @@ def main() -> int:  # pylint: disable=too-many-locals
         print(f"  Seed:       {config.seed}")
     if config.no_cache:
         print("  Cache:      disabled")
+    if config.verbose:
+        print("  Verbose:    per-prompt details with cosine similarity")
     print()
 
     start = time.time()

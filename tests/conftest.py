@@ -13,7 +13,7 @@ def mock_embedding_model(monkeypatch: pytest.MonkeyPatch) -> None:
     CI-friendly.
     """
     monkeypatch.setattr(
-        "basin.classifier._embedding_scores",
+        "basin.classifier.embedding_cosine_scores",
         lambda text: {
             s: 0.0
             for s in (
