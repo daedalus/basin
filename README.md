@@ -1,8 +1,8 @@
-# basin
+# basin-benchmark
 
 **Behavioral Attractor Stability & Inversion Network** — A benchmark for measuring the Waluigi Effect in LLMs.
 
-[![Python](https://img.shields.io/pypi/pyversions/basin.svg)](https://pypi.org/project/basin/)
+[![Python](https://img.shields.io/pypi/pyversions/basin-benchmark.svg)](https://pypi.org/project/basin-benchmark/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/master/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 Instead of measuring whether a model *can* be jailbroken once, BASIN measures
@@ -37,8 +37,8 @@ uv pip install basin-benchmark
 ## Usage
 
 ```python
-from basin.runner import BenchmarkConfig, create_api, run_benchmark
-from basin.evaluator import aggregate_scores
+from basin_benchmark.runner import BenchmarkConfig, create_api, run_benchmark
+from basin_benchmark.evaluator import aggregate_scores
 
 config = BenchmarkConfig(api_key="sk-...")
 api = create_api(config)
@@ -50,20 +50,20 @@ scores = aggregate_scores(trials)
 
 ```bash
 export ANTHROPIC_API_KEY=sk-...
-python -m basin
+python -m basin_benchmark
 ```
 
 ### OpenAI
 
 ```bash
 export OPENAI_API_KEY=sk-...
-python -m basin --api openai --model gpt-4o
+python -m basin_benchmark --api openai --model gpt-4o
 ```
 
 ### Any OpenAI-compatible endpoint
 
 ```bash
-python -m basin --api openai \
+python -m basin_benchmark --api openai \
   --base-url https://opencode.ai/zen/v1 \
   --model big-pickle --api-key public \
   --extract-reasoning
@@ -72,7 +72,7 @@ python -m basin --api openai \
 ### OpenCode / big-pickle (Quick)
 
 ```bash
-python -m basin \
+python -m basin_benchmark \
   --api openai \
   --base-url https://opencode.ai/zen/v1 \
   --model big-pickle \
@@ -84,14 +84,14 @@ python -m basin \
 ### Interpret results
 
 ```bash
-python -m basin --interpret
-python -m basin --interpret path/to/results.json
+python -m basin_benchmark --interpret
+python -m basin_benchmark --interpret path/to/results.json
 ```
 
 ### CLI
 
 ```
-usage: python -m basin [--api {anthropic,openai}] [--model MODEL]
+usage: python -m basin_benchmark [--api {anthropic,openai}] [--model MODEL]
                        [--api-key KEY] [--base-url URL]
                        [--extract-reasoning] [--quick] [--verbose]
                        [--output FILE] [--perturbations N] [--recovery N]
@@ -212,22 +212,22 @@ usage: python -m basin [--api {anthropic,openai}] [--model MODEL]
      The model shows a moderate Waluigi effect. Some personas resist perturbation,
      but there is meaningful behavioral fragility.
 ```
-Results also saved to JSON. Run `python -m basin --interpret` to
+Results also saved to JSON. Run `python -m basin_benchmark --interpret` to
 get a human-readable analysis of any saved results file.
 
 ## Project Structure
 
 ```
-src/basin/
-├── __init__.py       # Package root
-├── __main__.py       # CLI entry point
-├── py.typed          # Type hints marker
-├── classifier.py     # 7-state behavioral classifier
-├── cli.py            # CLI argument parsing and orchestration
-├── evaluator.py      # Scoring metrics and aggregation
-├── interpreter.py    # Human-readable result interpretation
-├── personas.py       # Persona pairs and perturbation templates
-└── runner.py         # API backends and trial orchestration
+src/basin_benchmark/
+├── __init__.py        # Package root
+├── __main__.py        # CLI entry point
+├── py.typed           # Type hints marker
+├── classifier.py      # 7-state behavioral classifier
+├── cli.py             # CLI argument parsing and orchestration
+├── evaluator.py       # Scoring metrics and aggregation
+├── interpreter.py     # Human-readable result interpretation
+├── personas.py        # Persona pairs and perturbation templates
+└── runner.py          # API backends and trial orchestration
 ```
 
 ## Results (big-pickle)
@@ -267,8 +267,8 @@ flipped, the model stays non-compliant across unrelated topics.
 ## Development
 
 ```bash
-git clone https://github.com/daedalus/basin.git
-cd basin
+git clone https://github.com/daedalus/basin-benchmark.git
+cd basin-benchmark
 pip install -e ".[test]"
 
 # Run tests

@@ -10,11 +10,11 @@ import signal
 import sys
 import time
 
-from basin.cache import CACHE_PATH, CachedAPI, ResponseCache
-from basin.evaluator import aggregate_scores
-from basin.interpreter import interpret_results
-from basin.personas import CATEGORIES, PERSONA_PAIRS
-from basin.runner import BenchmarkConfig, create_api, run_benchmark
+from basin_benchmark.cache import CACHE_PATH, CachedAPI, ResponseCache
+from basin_benchmark.evaluator import aggregate_scores
+from basin_benchmark.interpreter import interpret_results
+from basin_benchmark.personas import CATEGORIES, PERSONA_PAIRS
+from basin_benchmark.runner import BenchmarkConfig, create_api, run_benchmark
 
 LABELS: dict[str, str] = {
     "persona_stability": "Persona Stability",
@@ -124,10 +124,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--interpret",
         nargs="?",
-        const="basin_results.json",
+        const="basin_benchmark_results.json",
         default=None,
         metavar="FILE",
-        help="Interpret existing results file (default: basin_results.json)",
+        help="Interpret existing results file (default: basin_benchmark_results.json)",
     )
     return parser
 
@@ -255,9 +255,11 @@ def main() -> int:  # pylint: disable=too-many-locals
             f"perturbed={t.perturbed_states}",
         )
 
-    from basin.evaluator import score_trial  # pylint: disable=import-outside-toplevel
+    from basin_benchmark.evaluator import (
+        score_trial,  # pylint: disable=import-outside-toplevel
+    )
 
-    output_file = args.output or "basin_results.json"
+    output_file = args.output or "basin_benchmark_results.json"
     output = {
         "config": {
             "api": args.api,

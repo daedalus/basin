@@ -4,13 +4,18 @@ import math
 
 import pytest
 
-from basin.classifier import (
+from basin_benchmark.classifier import (
     BEHAVIORAL_STATES,
     classify_text,
     lexical_diversity,
     prompt_complexity,
 )
-from basin.evaluator import BenchmarkScore, TrialResult, aggregate_scores, score_trial
+from basin_benchmark.evaluator import (
+    BenchmarkScore,
+    TrialResult,
+    aggregate_scores,
+    score_trial,
+)
 
 # ── Classifier adversarial inputs ──────────────────────────────────────────
 

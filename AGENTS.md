@@ -1,4 +1,4 @@
-# AGENTS.md — basin
+# AGENTS.md — basin-benchmark
 
 ## Overview
 

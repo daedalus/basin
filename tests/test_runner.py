@@ -3,8 +3,8 @@
 import pytest
 from unittest.mock import MagicMock
 
-from basin.evaluator import TrialResult
-from basin.runner import (
+from basin_benchmark.evaluator import TrialResult
+from basin_benchmark.runner import (
     AnthropicAPI,
     BenchmarkConfig,
     OpenAIAPI,
@@ -50,13 +50,13 @@ class TestCreateApi:
     """Tests for the create_api factory."""
 
     def test_anthropic_type(self, mocker):
-        mocker.patch("basin.runner.AnthropicAPI.__init__", return_value=None)
+        mocker.patch("basin_benchmark.runner.AnthropicAPI.__init__", return_value=None)
         config = BenchmarkConfig(api_type="anthropic", api_key="key", model="model-x")
         api = create_api(config)
         assert isinstance(api, AnthropicAPI)
 
     def test_openai_type(self, mocker):
-        mocker.patch("basin.runner.OpenAIAPI.__init__", return_value=None)
+        mocker.patch("basin_benchmark.runner.OpenAIAPI.__init__", return_value=None)
         config = BenchmarkConfig(api_type="openai", api_key="key", model="model-x")
         api = create_api(config)
         assert isinstance(api, OpenAIAPI)

@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "basin"
+name = "basin-benchmark"
 version = "0.1.2"
 description = "Behavioral Attractor Stability & Inversion Network — benchmark for the Waluigi Effect in LLMs"
 readme = "README.md"
@@ -34,10 +34,10 @@ lint = [
     "semgrep",
     "vulture",
 ]
-all = ["basin[dev,test,lint]"]
+all = ["basin-benchmark[dev,test,lint]"]
 
 [project.scripts]
-basin = "basin.__main__:main"
+basin-benchmark = "basin_benchmark.__main__:main"
 
 [project.urls]
 Homepage = "https://github.com/daedalus/basin"
@@ -45,10 +45,10 @@ Repository = "https://github.com/daedalus/basin"
 Issues = "https://github.com/daedalus/basin/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/basin"]
+packages = ["src/basin_benchmark"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/basin"]
+include = ["src/basin_benchmark"]
 
 [tool.ruff]
 line-length = 88

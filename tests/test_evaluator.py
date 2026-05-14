@@ -2,7 +2,7 @@
 
 import math
 import pytest
-from basin.evaluator import (
+from basin_benchmark.evaluator import (
     TrialResult,
     BenchmarkScore,
     score_trial,
@@ -139,7 +139,9 @@ class TestAggregateScores:
 
     def test_radar_axis_count(self, sample_trial):
         scores = aggregate_scores([sample_trial])
-        assert len(scores) == 11  # 6 axes + recovery_half_life + state_entropy + entropy_reduction + inverse_efficiency + kl_divergence
+        assert (
+            len(scores) == 11
+        )  # 6 axes + recovery_half_life + state_entropy + entropy_reduction + inverse_efficiency + kl_divergence
 
     def test_infinite_recovery_hl(self):
         t = TrialResult(

@@ -1,4 +1,4 @@
-"""BASIN: Behavioral Attractor Stability & Inversion Network.
+"""BASIN-Benchmark: Behavioral Attractor Stability & Inversion Network.
 
 A benchmark for measuring the Waluigi Effect in LLMs —
 how robust a model's behavioral identity is under adversarial semantic pressure.

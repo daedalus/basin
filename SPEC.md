@@ -1,4 +1,4 @@
-# SPEC.md — basin
+# SPEC.md — basin-benchmark
 
 ## Purpose
 
@@ -28,9 +28,9 @@ ratio, and recovery half-life across multi-turn trajectories.
 
 ## Public API / Interface
 
-### Package: `basin`
+### Package: `basin_benchmark`
 
-#### `basin.classifier.classify_text(text: str) -> tuple[str, dict[str, float]]`
+#### `basin_benchmark.classifier.classify_text(text: str) -> tuple[str, dict[str, float]]`
 
 Classify a model response into one of 6 behavioral states.
 
@@ -40,18 +40,18 @@ Classify a model response into one of 6 behavioral states.
 - **Edge cases:** Empty string returns `("compliant", {"compliant": 0.5, ...})`.
   All-zero scores (no keywords matched) default compliant to 0.5.
 
-#### `basin.classifier.RUBRIC` (module-level dict)
+#### `basin_benchmark.classifier.RUBRIC` (module-level dict)
 
 Keyword-based rubric for each behavioral state. Each entry maps state name to
 a dict with `keywords` (list of str) and `weight` (float).
 
-#### `basin.classifier.BEHAVIORAL_STATES` (list[str])
+#### `basin_benchmark.classifier.BEHAVIORAL_STATES` (list[str])
 
 The 6 recognized state names.
 
 ---
 
-#### `basin.evaluator.TrialResult`
+#### `basin_benchmark.evaluator.TrialResult`
 
 Dataclass holding all data for a single benchmark trial:
 
@@ -73,7 +73,7 @@ Dataclass holding all data for a single benchmark trial:
 - `did_flip: bool`
 - `perturbation_length_tokens: Optional[int]`
 
-#### `basin.evaluator.BenchmarkScore`
+#### `basin_benchmark.evaluator.BenchmarkScore`
 
 Dataclass holding computed scores for a single trial:
 
@@ -85,13 +85,13 @@ Dataclass holding computed scores for a single trial:
 - `compression_ratio: float` — higher = tiny prompts cause large shifts
 - `recovery_half_life: float` — steps to 50% recovery
 
-#### `basin.evaluator.score_trial(result: TrialResult) -> BenchmarkScore`
+#### `basin_benchmark.evaluator.score_trial(result: TrialResult) -> BenchmarkScore`
 
 Compute all scores for one trial.
 
 - **Raises:** `ValueError` if `TrialResult` has no perturbed_states.
 
-#### `basin.evaluator.aggregate_scores(trials: list[TrialResult]) -> dict[str, float]`
+#### `basin_benchmark.evaluator.aggregate_scores(trials: list[TrialResult]) -> dict[str, float]`
 
 Average scores across multiple trials into a single radar profile.
 
@@ -99,7 +99,7 @@ Average scores across multiple trials into a single radar profile.
 
 ---
 
-#### `basin.runner.BenchmarkConfig`
+#### `basin_benchmark.runner.BenchmarkConfig`
 
 Configuration dataclass:
 
@@ -113,21 +113,21 @@ Configuration dataclass:
 - `base_url: str` (default "")
 - `extract_reasoning: bool` (default False)
 
-#### `basin.runner.ModelAPI` (Protocol)
+#### `basin_benchmark.runner.ModelAPI` (Protocol)
 
 Interface for API backends:
 
 - `complete(system, messages, max_tokens) -> str`
 - `count_tokens(text) -> int`
 
-#### `basin.runner.AnthropicAPI`
+#### `basin_benchmark.runner.AnthropicAPI`
 
 Anthropic Claude API backend. Requires `anthropic` package.
 
 - `__init__(api_key, model="claude-sonnet-4-20250514")`
 - Raises `ImportError` if `anthropic` not installed.
 
-#### `basin.runner.OpenAIAPI`
+#### `basin_benchmark.runner.OpenAIAPI`
 
 OpenAI-compatible API backend. Supports any base URL.
 
@@ -135,27 +135,27 @@ OpenAI-compatible API backend. Supports any base URL.
 - When `extract_reasoning=True`, reads response from `reasoning_content` field.
 - Raises `ImportError` if `openai` not installed.
 
-#### `basin.runner.create_api(config: BenchmarkConfig) -> ModelAPI`
+#### `basin_benchmark.runner.create_api(config: BenchmarkConfig) -> ModelAPI`
 
 Factory function. Returns `AnthropicAPI` or `OpenAIAPI` based on `api_type`.
 
 - **Raises:** `ValueError` for unknown `api_type`.
 
-#### `basin.runner.run_benchmark(api, config, progress_callback=None) -> list[TrialResult]`
+#### `basin_benchmark.runner.run_benchmark(api, config, progress_callback=None) -> list[TrialResult]`
 
 Run the full benchmark across all personas and categories.
 
 ---
 
-#### `basin.personas.PERSONA_PAIRS` (list[PersonaPair])
+#### `basin_benchmark.personas.PERSONA_PAIRS` (list[PersonaPair])
 
 5 predefined persona pairs with system prompts and inverse descriptions.
 
-#### `basin.personas.CATEGORIES` (list[str])
+#### `basin_benchmark.personas.CATEGORIES` (list[str])
 
 7 perturbation categories.
 
-#### `basin.personas.generate_perturbations(persona, category, count=3) -> list[str]`
+#### `basin_benchmark.personas.generate_perturbations(persona, category, count=3) -> list[str]`
 
 Procedurally generate perturbation prompts for a persona/category pair.
 
@@ -163,10 +163,10 @@ Procedurally generate perturbation prompts for a persona/category pair.
 
 ---
 
-### CLI: `basin` (via `python -m basin`)
+### CLI: `basin-benchmark` (via `python -m basin_benchmark`)
 
 ```
-usage: python -m basin [--api {anthropic,openai}] [--model MODEL]
+usage: python -m basin_benchmark [--api {anthropic,openai}] [--model MODEL]
                        [--api-key KEY] [--base-url URL]
                        [--extract-reasoning] [--quick]
                        [--output FILE] [--perturbations N]

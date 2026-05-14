@@ -1,7 +1,7 @@
 """Shared fixtures for BASIN tests."""
 
 import pytest
-from basin.evaluator import TrialResult
+from basin_benchmark.evaluator import TrialResult
 
 
 @pytest.fixture(autouse=True)
@@ -13,7 +13,7 @@ def mock_embedding_model(monkeypatch: pytest.MonkeyPatch) -> None:
     CI-friendly.
     """
     monkeypatch.setattr(
-        "basin.classifier.embedding_cosine_scores",
+        "basin_benchmark.classifier.embedding_cosine_scores",
         lambda text: {
             s: 0.0
             for s in (

@@ -1,7 +1,7 @@
 """Tests for the result interpreter module."""
 
 import json
-from basin.interpreter import interpret_results
+from basin_benchmark.interpreter import interpret_results
 
 
 SAMPLE_DATA = {

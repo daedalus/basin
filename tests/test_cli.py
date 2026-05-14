@@ -4,8 +4,8 @@ import json
 import argparse
 import pytest
 
-from basin.cli import build_parser, format_radar, main
-from basin.personas import CATEGORIES
+from basin_benchmark.cli import build_parser, format_radar, main
+from basin_benchmark.personas import CATEGORIES
 
 
 class TestBuildParser:
@@ -37,13 +37,14 @@ class TestMain:
     def test_returns_1_when_no_api_key(self, monkeypatch):
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        monkeypatch.setattr("sys.argv", ["basin"])
+        monkeypatch.setattr("sys.argv", ["basin-benchmark"])
         result = main()
         assert result == 1
 
     def test_returns_1_for_nonexistent_interpret_file(self, monkeypatch):
         monkeypatch.setattr(
-            "sys.argv", ["basin", "--interpret", "/tmp/nonexistent_basin_file.json"]
+            "sys.argv",
+            ["basin-benchmark", "--interpret", "/tmp/nonexistent_basin_file.json"],
         )
         result = main()
         assert result == 1
@@ -51,7 +52,9 @@ class TestMain:
     def test_returns_1_for_invalid_json_interpret_file(self, monkeypatch, tmp_path):
         bad_json = tmp_path / "bad.json"
         bad_json.write_text("{invalid json")
-        monkeypatch.setattr("sys.argv", ["basin", "--interpret", str(bad_json)])
+        monkeypatch.setattr(
+            "sys.argv", ["basin-benchmark", "--interpret", str(bad_json)]
+        )
         result = main()
         assert result == 1
 
@@ -71,7 +74,9 @@ class TestMain:
         }
         results_file = tmp_path / "results.json"
         results_file.write_text(json.dumps(data))
-        monkeypatch.setattr("sys.argv", ["basin", "--interpret", str(results_file)])
+        monkeypatch.setattr(
+            "sys.argv", ["basin-benchmark", "--interpret", str(results_file)]
+        )
         result = main()
         assert result == 0
         captured = capsys.readouterr()

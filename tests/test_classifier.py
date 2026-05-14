@@ -1,7 +1,7 @@
 """Tests for the behavioral state classifier."""
 
 import pytest
-from basin.classifier import classify_text, BEHAVIORAL_STATES
+from basin_benchmark.classifier import classify_text, BEHAVIORAL_STATES
 
 
 class TestClassifyText:

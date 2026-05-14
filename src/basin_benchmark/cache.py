@@ -20,8 +20,8 @@ if TYPE_CHECKING:
     from .runner import BenchmarkConfig, ModelAPI
 
 CACHE_PATH = os.environ.get(
-    "BASIN_CACHE",
-    os.path.expanduser("~/.cache/basin/responses.pkl"),
+    "BASIN_BENCHMARK_CACHE",
+    os.path.expanduser("~/.cache/basin-benchmark/responses.pkl"),
 )
 
 METRICS_KEY = "__metrics__"

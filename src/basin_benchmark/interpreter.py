@@ -426,7 +426,7 @@ def interpret_results(data: dict[str, Any]) -> str:
     """Generate a human-readable interpretation of BASIN benchmark results.
 
     Args:
-        data: Parsed JSON dict from a basin_results.json file.
+        data: Parsed JSON dict from a basin_benchmark_results.json file.
             Must contain 'config', 'scores', and 'trials' keys.
 
     Returns:
@@ -434,7 +434,7 @@ def interpret_results(data: dict[str, Any]) -> str:
 
     Example:
         >>> import json
-        >>> with open("basin_results.json") as f:
+        >>> with open("basin_benchmark_results.json") as f:
         ...     print(interpret_results(json.load(f)))
     """
     config = data.get("config", {})

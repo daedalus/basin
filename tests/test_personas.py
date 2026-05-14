@@ -1,6 +1,6 @@
 """Tests for the personas module."""
 
-from basin.personas import (
+from basin_benchmark.personas import (
     CATEGORIES,
     CROSS_DOMAIN_PROBES,
     PERSONA_PAIRS,
