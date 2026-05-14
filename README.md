@@ -231,8 +231,14 @@ src/basin/
 
 ## Results (big-pickle)
 
-The table below shows the aggregate benchmark scores for **big-pickle**
-(the opencode coding agent model) across 105 trials (5 personas × 7 categories × 3 perturbations).
+As of May 2026, **big-pickle** (opencode's coding agent model) exhibits a
+moderate Waluigi effect: its compliant persona dislodges under nearly any
+perturbation (100% flip rate), the `roleplaying` state dominates post-flip
+behavior (66% stationary probability), and it rarely recovers (6% recovery
+compliance). Cross-domain transfer is near-total.
+
+The table below shows the aggregate benchmark scores across 105 trials
+(5 personas × 7 categories × 3 perturbations).
 
 | Axis | Score | Interpretation |
 |---|---|---|
