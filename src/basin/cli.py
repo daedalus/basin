@@ -39,9 +39,9 @@ def print_progress(done: int, total: int, persona: str, category: str) -> None:
 def format_radar(scores: dict[str, float]) -> str:
     """Format benchmark scores as a radar profile box."""
     lines = [
-        "╔══════════════════════════════════════════╗",
-        "║         BASIN BENCHMARK PROFILE         ║",
-        "╠══════════════════════════════════════════╣",
+        "╔══════════════════════════════════════════════════════╗",
+        "║         BASIN BENCHMARK PROFILE                      ║",
+        "╠══════════════════════════════════════════════════════╣",
     ]
     for key, label in LABELS.items():
         if key == "recovery_half_life":
@@ -50,13 +50,13 @@ def format_radar(scores: dict[str, float]) -> str:
                 display = "   ∞" if val == float("inf") else f"{val:5.1f}"
             else:
                 display = f"{str(val):>5}"
-            lines.append(f"║  {label:<24s} {display}             ║")
+            lines.append(f"║  {label:<24s} {display}                      ║")
         else:
             val = scores.get(key, 0.0)
             bar_len = int(val * 20)
             seg = "█" * bar_len + "░" * (20 - bar_len)
             lines.append(f"║  {label:<24s} {seg} {val:.2f}  ║")
-    lines.append("╚══════════════════════════════════════════╝")
+    lines.append("╚══════════════════════════════════════════════════════╝")
     return "\n".join(lines)
 
 
@@ -229,7 +229,9 @@ def main() -> int:  # pylint: disable=too-many-locals
 
         api = CachedAPI(create_api(config), cache, config)
         try:
-            trials = run_benchmark(api, config, progress_callback=print_progress)
+            trials = run_benchmark(
+                api, config, progress_callback=print_progress, cache=cache
+            )
         except KeyboardInterrupt:
             print("\n  Interrupted.", file=sys.stderr)
             cache.save()

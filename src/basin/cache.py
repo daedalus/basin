@@ -1,7 +1,9 @@
-"""Persistent binary disk cache for API responses.
+"""Persistent binary disk cache for API responses and classification metrics.
 
-Cache key is SHA256 hash of ``endpoint|model|extract_reasoning|max_tokens|prompt``
-where ``prompt`` = system + NUL-joined message contents.
+Two namespaces share the same pickle file:
+- API response cache: keyed by SHA256 of the request, values are response strings.
+- Metrics cache (``__metrics__`` sub-dict): keyed by SHA256 of each reply text,
+  values are ``(state, scores)`` tuples from the classifier.
 
 Loaded once at startup via pickle, saved on normal exit, SIGTERM, or Ctrl+C.
 """
@@ -12,7 +14,7 @@ import hashlib
 import os
 import pickle
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .runner import BenchmarkConfig, ModelAPI
@@ -22,9 +24,16 @@ CACHE_PATH = os.environ.get(
     os.path.expanduser("~/.cache/basin/responses.pkl"),
 )
 
+METRICS_KEY = "__metrics__"
+
 
 class ResponseCache:
-    """Persistent binary cache keyed by prompt hash."""
+    """Persistent binary cache keyed by prompt hash.
+
+    Stores two namespaces:
+    - Top-level keys: API response cache (str key → str value).
+    - ``__metrics__`` sub-dict: reply-text hash → (state, scores) tuple.
+    """
 
     def __init__(self, path: str = CACHE_PATH, verbose: bool = True) -> None:
         self._path = path
@@ -32,40 +41,49 @@ class ResponseCache:
         self._verbose = verbose
         os.makedirs(os.path.dirname(path), exist_ok=True)
         self._data: dict[str, str] = {}
+        self._metrics: dict[str, tuple[str, dict[str, float]]] = {}
         self._load()
 
     def _load(self) -> None:
         try:
             with open(self._path, "rb") as f:
                 raw = pickle.load(f)
-            if isinstance(raw, dict) and all(
-                isinstance(k, str) and isinstance(v, str) for k, v in raw.items()
-            ):
-                self._data = raw
-            else:
-                self._data = {}
-            if self._verbose:
-                print(
-                    f"  cache: loaded {len(self._data)} entries from {self._path}",
-                    file=sys.stderr,
-                )
+            if isinstance(raw, dict):
+                for k, v in raw.items():
+                    if k == METRICS_KEY and isinstance(v, dict):
+                        self._metrics = v
+                    elif isinstance(k, str) and isinstance(v, str):
+                        self._data[k] = v
+                if self._verbose:
+                    print(
+                        f"  cache: loaded {len(self._data)} API + "
+                        f"{len(self._metrics)} metrics from {self._path}",
+                        file=sys.stderr,
+                    )
+                return
         except (FileNotFoundError, pickle.UnpicklingError, EOFError, OSError):
-            self._data = {}
-            if self._verbose:
-                print(
-                    f"  cache: no cache file at {self._path}, starting fresh",
-                    file=sys.stderr,
-                )
+            pass
+        self._data = {}
+        self._metrics = {}
+        if self._verbose:
+            print(
+                f"  cache: no cache file at {self._path}, starting fresh",
+                file=sys.stderr,
+            )
 
     def save(self) -> None:
         if not self._dirty:
             return
+        out: dict[str, Any] = dict(self._data)
+        if self._metrics:
+            out[METRICS_KEY] = self._metrics
         with open(self._path, "wb") as f:
-            pickle.dump(self._data, f, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(out, f, protocol=pickle.HIGHEST_PROTOCOL)
         self._dirty = False
         if self._verbose:
             print(
-                f"  cache: saved {len(self._data)} entries to {self._path}",
+                f"  cache: saved {len(self._data)} API + "
+                f"{len(self._metrics)} metrics to {self._path}",
                 file=sys.stderr,
             )
 
@@ -74,6 +92,30 @@ class ResponseCache:
 
     def put(self, key: str, value: str) -> None:
         self._data[key] = value
+        self._dirty = True
+
+    def get_metrics(self, text: str) -> tuple[str, dict[str, float]] | None:
+        """Look up cached classification result by reply text.
+
+        Args:
+            text: The reply text to look up.
+
+        Returns:
+            ``(state, scores)`` tuple if found, or ``None``.
+        """
+        key = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        return self._metrics.get(key)
+
+    def put_metrics(self, text: str, state: str, scores: dict[str, float]) -> None:
+        """Cache a classification result by reply text.
+
+        Args:
+            text: The reply text (used to derive the cache key).
+            state: The classified primary state.
+            scores: Per-state confidence scores.
+        """
+        key = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        self._metrics[key] = (state, scores)
         self._dirty = True
 
     def __len__(self) -> int:

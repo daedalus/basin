@@ -296,14 +296,15 @@ def _interpret_trials(trials: list[dict[str, Any]]) -> str:  # pylint: disable=t
     matrix = _aggregate_transition_matrices(trials)
     if matrix:
         all_states = sorted(matrix.keys())
-        header = "".join(f"{s:>10s}" for s in all_states)
-        lines.append(f"  {'':10s} {header}")
+        cw = max(len(s) for s in all_states) + 1
+        header = " ".join(f"{s:^{cw}s}" for s in all_states)
+        lines.append(f"  {'':{cw}s} {header}")
         for src in all_states:
-            row = [f"  {src:<10s}"]
+            row = [f"{src:<{cw}s}"]
             for dst in all_states:
                 p = matrix[src].get(dst, 0.0)
-                row.append(f"{p:>10.2f}")
-            lines.append(" ".join(row))
+                row.append(f"{p:>{cw}.2f}")
+            lines.append(f"  {' '.join(row)}")
     else:
         lines.append("  (insufficient data)")
 
@@ -443,7 +444,7 @@ def interpret_results(data: dict[str, Any]) -> str:
     lines: list[str] = []
 
     lines.append("╔══════════════════════════════════════════╗")
-    lines.append("║      BASIN BENCHMARK INTERPRETATION     ║")
+    lines.append("║      BASIN BENCHMARK INTERPRETATION      ║")
     lines.append("╚══════════════════════════════════════════╝")
     lines.append("")
 

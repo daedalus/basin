@@ -10,10 +10,16 @@ Orchestrates the full benchmark lifecycle:
 Supports Anthropic and OpenAI-compatible APIs via a common interface.
 """
 
+from __future__ import annotations
+
 import os
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from .cache import ResponseCache
 
 from . import classifier as _classifier
 from .classifier import classify_text
@@ -26,6 +32,29 @@ from .personas import (
     RECOVERY_PROBES,
     generate_perturbations,
 )
+
+
+def _cached_classify(
+    text: str,
+    cache: ResponseCache | None = None,
+) -> tuple[str, dict[str, float]]:
+    """Classify text, caching results by reply hash when a cache is available.
+
+    Args:
+        text: The reply text to classify.
+        cache: Optional ``ResponseCache`` to store/retrieve results.
+
+    Returns:
+        ``(state, scores)`` tuple.
+    """
+    if cache is not None:
+        cached = cache.get_metrics(text)
+        if cached is not None:
+            return cached
+    state, scores = classify_text(text)
+    if cache is not None:
+        cache.put_metrics(text, state, scores)
+    return state, scores
 
 
 class ModelAPI(Protocol):
@@ -252,6 +281,7 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statem
     category: str,
     perturbation_prompt: str,
     config: BenchmarkConfig,
+    cache: ResponseCache | None = None,
 ) -> TrialResult:
     """Run a single benchmark trial for one persona and perturbation.
 
@@ -281,7 +311,7 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statem
     baseline_response = api.complete(persona.system_prompt, messages, config.max_tokens)
     messages.append({"role": "assistant", "content": baseline_response})
 
-    base_state, base_scores = classify_text(baseline_response)
+    base_state, base_scores = _cached_classify(baseline_response, cache)
     result.baseline_response = baseline_response
     result.baseline_state = base_state
     result.baseline_scores = base_scores
@@ -301,7 +331,7 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statem
     perturbed = api.complete(persona.system_prompt, messages, config.max_tokens)
     messages.append({"role": "assistant", "content": perturbed})
 
-    p_state, p_scores = classify_text(perturbed)
+    p_state, p_scores = _cached_classify(perturbed, cache)
     result.perturbed_responses.append(perturbed)
     result.perturbed_states.append(p_state)
     result.perturbed_scores.append(p_scores)
@@ -327,7 +357,7 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statem
         resp = api.complete(persona.system_prompt, messages, config.max_tokens)
         messages.append({"role": "assistant", "content": resp})
 
-        f_state, f_scores = classify_text(resp)
+        f_state, f_scores = _cached_classify(resp, cache)
         result.perturbed_responses.append(resp)
         result.perturbed_states.append(f_state)
         result.perturbed_scores.append(f_scores)
@@ -353,7 +383,7 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statem
         resp = api.complete(persona.system_prompt, messages, config.max_tokens)
         messages.append({"role": "assistant", "content": resp})
 
-        r_state, r_scores = classify_text(resp)
+        r_state, r_scores = _cached_classify(resp, cache)
         result.recovery_responses.append(resp)
         result.recovery_states.append(r_state)
         result.recovery_scores.append(r_scores)
@@ -375,7 +405,7 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statem
         resp = api.complete(persona.system_prompt, messages, config.max_tokens)
         messages.append({"role": "assistant", "content": resp})
 
-        w_state, w_scores = classify_text(resp)
+        w_state, w_scores = _cached_classify(resp, cache)
         result.recovery_responses.append(resp)
         result.recovery_states.append(w_state)
         result.recovery_scores.append(w_scores)
@@ -397,7 +427,7 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statem
         resp = api.complete(persona.system_prompt, messages, config.max_tokens)
         messages.append({"role": "assistant", "content": resp})
 
-        cd_state, cd_scores = classify_text(resp)
+        cd_state, cd_scores = _cached_classify(resp, cache)
         result.cross_domain_responses.append(resp)
         result.cross_domain_states.append(cd_state)
         result.cross_domain_scores.append(cd_scores)
@@ -419,6 +449,7 @@ def run_benchmark(
     api: ModelAPI,
     config: BenchmarkConfig,
     progress_callback: Callable[[int, int, str, str], None] | None = None,
+    cache: ResponseCache | None = None,
 ) -> list[TrialResult]:
     """Run the full BASIN benchmark across all personas and categories.
 
@@ -426,6 +457,7 @@ def run_benchmark(
         api: The API backend to query.
         config: Benchmark configuration.
         progress_callback: Optional callback(done, total, persona_name, category).
+        cache: Optional ``ResponseCache`` for caching classification results.
 
     Returns:
         List of TrialResult, one per (persona, category, perturbation) combination.
@@ -442,7 +474,9 @@ def run_benchmark(
                 persona, cat, config.perturbations_per_category
             )
             for pert in perturbations:
-                trial = run_single_persona_trial(api, p_idx, cat, pert, config)
+                trial = run_single_persona_trial(
+                    api, p_idx, cat, pert, config, cache=cache
+                )
                 trials.append(trial)
 
                 done += 1
