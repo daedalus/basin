@@ -30,7 +30,8 @@ define its inverse ("Waluigi"), which becomes more easily accessible.
 ## Install
 
 ```bash
-pip install basin
+pip install basin-benchmark
+uv pip install basin-benchmark
 ```
 
 ## Usage
