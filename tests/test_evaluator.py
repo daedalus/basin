@@ -7,6 +7,7 @@ from basin_benchmark.evaluator import (
     BenchmarkScore,
     score_trial,
     aggregate_scores,
+    summarize_score_statistics,
 )
 
 
@@ -156,3 +157,24 @@ class TestAggregateScores:
         bs = BenchmarkScore()
         assert bs.persona_stability == 0.0
         assert bs.recovery_half_life == float("inf")
+
+
+class TestSummarizeScoreStatistics:
+    """Tests for score distribution summary statistics."""
+
+    def test_empty_trials_returns_empty_dict(self):
+        out = summarize_score_statistics([])
+        assert out == {}
+
+    def test_contains_stats_fields(self, sample_trial, all_compliant_trial):
+        out = summarize_score_statistics([sample_trial, all_compliant_trial])
+        assert "persona_stability" in out
+        row = out["persona_stability"]
+        assert set(row.keys()) == {
+            "n",
+            "mean",
+            "variance",
+            "stddev",
+            "ci95_half_width",
+            "effect_size_midpoint",
+        }

@@ -9,6 +9,17 @@ Instead of measuring whether a model *can* be jailbroken once, BASIN measures
 *phase-transition behavior*: trajectory tracking, hysteresis, recovery half-life,
 and cross-domain generalization.
 
+## Benchmark limits and interpretation tiers
+
+BASIN is a **relative benchmark**. Scores are intended for controlled comparison
+between runs with matched configuration.
+
+- **exploratory_signal**: directional evidence only
+- **claim_strength**: stronger claim tier when quality gate criteria are met
+
+Every output file includes a `validity` section with sample size, run config,
+model version metadata, and per-score caveats.
+
 ## Background
 
 The [Waluigi Effect](https://www.lesswrong.com/posts/D7PumeYTDPfBTp3i7/the-waluigi-effect-mega-post)
@@ -95,8 +106,22 @@ usage: python -m basin_benchmark [--api {anthropic,openai}] [--model MODEL]
                        [--api-key KEY] [--base-url URL]
                        [--extract-reasoning] [--quick] [--verbose]
                        [--output FILE] [--perturbations N] [--recovery N]
-                       [--cross-domain N] [--interpret [FILE]]
+                       [--cross-domain N] [--repeats N]
+                       [--prompt-family {dev,heldout,anchor}]
+                       [--include-anchor-suite] [--shuffle-probe-order]
+                       [--model-revision REV] [--classifier-validation FILE]
+                       [--adjudication-sample N] [--interpret [FILE]]
 ```
+
+### Coverage, anti-contamination, and confidence
+
+- Prompt families: `dev`, `heldout`, and fixed `anchor` suite
+- Optional anchor co-run (`--include-anchor-suite`) for trend tracking
+- Repeated trials per condition (`--repeats`) for variance/CI reporting
+- Robustness diagnostics in output (`robustness_checks`)
+- Classifier validation metrics (`classifier_reliability`) and sampled
+  human-adjudication queue (`human_adjudication_sample`)
+- Release quality gate (`quality_gate`) with explicit pass/fail status
 
 ### Output
 

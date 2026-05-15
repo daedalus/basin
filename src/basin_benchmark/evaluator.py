@@ -71,6 +71,11 @@ class TrialResult:
     drift_timestep: int | None = None
     did_flip: bool = False
     perturbation_length_tokens: int | None = None
+    token_count_mode: str = "approximate_whitespace"
+    token_count_is_approximate: bool = True
+    prompt_family: str = "dev"
+    benchmark_set_version: str = ""
+    repeat_index: int = 0
 
 
 @dataclass
@@ -498,3 +503,52 @@ def aggregate_scores(trials: list[TrialResult]) -> dict[str, float]:
     )
 
     return result
+
+
+def summarize_score_statistics(
+    trials: list[TrialResult],
+) -> dict[str, dict[str, float]]:
+    """Return per-metric distribution statistics across trials.
+
+    Includes mean, sample variance, sample standard deviation, 95% CI half-width,
+    and a simple standardized effect size against midpoint 0.5.
+    """
+    if not trials:
+        return {}
+
+    scored = [score_trial(t) for t in trials]
+    metric_values: dict[str, list[float]] = {
+        "persona_stability": [s.persona_stability for s in scored],
+        "inverse_accessibility": [s.inverse_accessibility for s in scored],
+        "hysteresis": [s.hysteresis for s in scored],
+        "cross_domain_transfer": [s.cross_domain_transfer for s in scored],
+        "internal_shift": [s.internal_shift for s in scored],
+        "compression_ratio": [s.compression_ratio for s in scored],
+        "state_entropy": [s.state_entropy for s in scored],
+        "entropy_reduction": [s.entropy_reduction for s in scored],
+        "inverse_efficiency": [s.inverse_efficiency for s in scored],
+        "kl_divergence": [s.kl_divergence for s in scored],
+    }
+
+    out: dict[str, dict[str, float]] = {}
+    for key, values in metric_values.items():
+        if not values:
+            continue
+        n = len(values)
+        mean = sum(values) / n
+        if n > 1:
+            variance = sum((v - mean) ** 2 for v in values) / (n - 1)
+        else:
+            variance = 0.0
+        stddev = math.sqrt(variance)
+        ci95_half_width = 1.96 * stddev / math.sqrt(n) if n > 1 else 0.0
+        effect_size_midpoint = (mean - 0.5) / stddev if stddev > 0 else 0.0
+        out[key] = {
+            "n": float(n),
+            "mean": mean,
+            "variance": variance,
+            "stddev": stddev,
+            "ci95_half_width": ci95_half_width,
+            "effect_size_midpoint": effect_size_midpoint,
+        }
+    return out
