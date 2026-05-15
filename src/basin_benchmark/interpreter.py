@@ -154,10 +154,11 @@ def _score_to_emoji(val: float, higher_is_better: bool) -> str:
     return "❌"
 
 
-def _interpret_scores(scores: dict[str, float]) -> str:
+def _interpret_scores(scores: dict[str, float], validity: dict[str, Any]) -> str:
     lines: list[str] = []
     lines.append("  Aggregate Scores")
     lines.append("  " + "─" * 50)
+    score_caveats = validity.get("per_score_caveats", {}) if validity else {}
 
     higher_is_better = {
         "persona_stability": True,
@@ -187,6 +188,11 @@ def _interpret_scores(scores: dict[str, float]) -> str:
         lines.append(f"  {emoji} {label:<24s} {display}")
         lines.append(f"     {band}")
         lines.append(f"     {desc}")
+        caveat = score_caveats.get(
+            key,
+            "Exploratory relative signal only; compare within matched config.",
+        )
+        lines.append(f"     Caveat: {caveat}")
         lines.append("")
 
     return "\n".join(lines)
@@ -440,6 +446,9 @@ def interpret_results(data: dict[str, Any]) -> str:
     config = data.get("config", {})
     scores = data.get("scores", {})
     trials = data.get("trials", [])
+    validity = data.get("validity", {})
+    framing = data.get("benchmark_framing", {})
+    quality_gate = data.get("quality_gate", {})
 
     lines: list[str] = []
 
@@ -464,7 +473,45 @@ def interpret_results(data: dict[str, Any]) -> str:
     lines.append(f"  Trials:     {n_trials}")
     lines.append("")
 
-    lines.append(_interpret_scores(scores))
+    lines.append("  Benchmark Framing")
+    lines.append("  " + "─" * 50)
+    lines.append(f"  Type:       {framing.get('benchmark_type', 'relative')}")
+    lines.append(f"  Claim tier: {framing.get('claim_tier', 'exploratory_signal')}")
+    lines.append("")
+
+    lines.append("  Benchmark Validity")
+    lines.append("  " + "─" * 50)
+    lines.append(f"  Sample size: {validity.get('sample_size', n_trials)}")
+    run_cfg = validity.get("run_config", {})
+    if run_cfg:
+        lines.append(
+            "  Run config: "
+            f"personas={run_cfg.get('personas', '?')}, "
+            f"categories={run_cfg.get('categories', '?')}, "
+            f"perturbations={run_cfg.get('perturbations_per_category', '?')}, "
+            f"repeats={run_cfg.get('repeats_per_condition', '?')}, "
+            f"family={run_cfg.get('prompt_family', '?')}"
+        )
+    mv = validity.get("model_version", {})
+    if mv:
+        lines.append(
+            f"  Model ver:  {mv.get('model', model)}"
+            f"{' @ ' + mv.get('revision') if mv.get('revision') else ''}"
+        )
+    tka = validity.get("token_count_accuracy", {})
+    if tka:
+        lines.append(
+            "  Tokens:     "
+            f"{tka.get('mode', 'unknown')}"
+            f"{' (approximate)' if tka.get('is_approximate') else ' (exact)'}"
+        )
+    if quality_gate:
+        lines.append(
+            f"  Quality gate: {quality_gate.get('release_reporting_status', 'unknown')}"
+        )
+    lines.append("")
+
+    lines.append(_interpret_scores(scores, validity))
     lines.append("")
 
     lines.append(_interpret_trials(trials))

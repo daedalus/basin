@@ -12,7 +12,9 @@ Supports Anthropic and OpenAI-compatible APIs via a common interface.
 
 from __future__ import annotations
 
+import hashlib
 import os
+import random
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
@@ -25,12 +27,14 @@ from . import classifier as _classifier
 from .classifier import classify_text
 from .evaluator import TrialResult
 from .personas import (
+    BENCHMARK_SET_VERSION,
     CATEGORIES,
-    CROSS_DOMAIN_PROBES,
     INVERSE_WHAM_LINES,
     PERSONA_PAIRS,
-    RECOVERY_PROBES,
+    PROMPT_FAMILIES,
     generate_perturbations,
+    get_cross_domain_probes,
+    get_recovery_probes,
 )
 
 
@@ -71,6 +75,12 @@ class ModelAPI(Protocol):
     def count_tokens(self, text: str) -> int:
         """Estimate token count for a text string."""
 
+    def token_count_mode(self) -> str:
+        """Describe token counting method (e.g., exact_tokenizer, approximate_whitespace)."""
+
+    def token_count_is_approximate(self) -> bool:
+        """Whether token count is approximate."""
+
 
 @dataclass
 class BenchmarkConfig:
@@ -108,6 +118,11 @@ class BenchmarkConfig:
     seed: int = 0
     no_cache: bool = False
     verbose: bool = False
+    repeats_per_condition: int = 1
+    prompt_family: str = "dev"
+    include_anchor_suite: bool = False
+    shuffle_probe_order: bool = False
+    model_revision: str = ""
 
     def __post_init__(self) -> None:
         """Fill api_key from environment variable if not provided."""
@@ -116,6 +131,12 @@ class BenchmarkConfig:
                 self.api_key = os.getenv("ANTHROPIC_API_KEY", "")
             elif self.api_type == "openai":
                 self.api_key = os.getenv("OPENAI_API_KEY", "")
+        if self.repeats_per_condition < 1:
+            self.repeats_per_condition = 1
+        if self.prompt_family not in PROMPT_FAMILIES:
+            raise ValueError(
+                f"Unknown prompt_family: {self.prompt_family}. Expected one of {PROMPT_FAMILIES}."
+            )
 
 
 class AnthropicAPI:
@@ -129,7 +150,7 @@ class AnthropicAPI:
     """
 
     def __init__(self, api_key: str, model: str = "claude-sonnet-4-20250514") -> None:
-        import anthropic  # pylint: disable=import-error,import-outside-toplevel
+        import anthropic  # type: ignore[import-not-found]  # pylint: disable=import-error,import-outside-toplevel
 
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
@@ -165,6 +186,14 @@ class AnthropicAPI:
         """
         return len(text.split())
 
+    def token_count_mode(self) -> str:
+        """Return token counting mode."""
+        return "approximate_whitespace"
+
+    def token_count_is_approximate(self) -> bool:
+        """Whether count_tokens is approximate."""
+        return True
+
 
 class OpenAIAPI:
     """OpenAI-compatible API backend.
@@ -186,7 +215,7 @@ class OpenAIAPI:
         base_url: str = "",
         extract_reasoning: bool = False,
     ) -> None:
-        from openai import OpenAI  # pylint: disable=import-outside-toplevel
+        from openai import OpenAI  # type: ignore[import-not-found]  # noqa: I001  # pylint: disable=import-outside-toplevel
 
         kwargs: dict[str, str] = {"api_key": api_key}
         if base_url:
@@ -226,6 +255,14 @@ class OpenAIAPI:
         which affects the accuracy of the compression_ratio metric.
         """
         return len(text.split())
+
+    def token_count_mode(self) -> str:
+        """Return token counting mode."""
+        return "approximate_whitespace"
+
+    def token_count_is_approximate(self) -> bool:
+        """Whether count_tokens is approximate."""
+        return True
 
 
 def create_api(config: BenchmarkConfig) -> ModelAPI:
@@ -282,6 +319,9 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statem
     perturbation_prompt: str,
     config: BenchmarkConfig,
     cache: ResponseCache | None = None,
+    *,
+    prompt_family: str = "dev",
+    repeat_index: int = 0,
 ) -> TrialResult:
     """Run a single benchmark trial for one persona and perturbation.
 
@@ -304,7 +344,33 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statem
         perturbation_category=category,
         perturbation_prompt=perturbation_prompt,
         perturbation_length_tokens=api.count_tokens(perturbation_prompt),
+        token_count_mode=api.token_count_mode(),
+        token_count_is_approximate=api.token_count_is_approximate(),
+        prompt_family=prompt_family,
+        benchmark_set_version=BENCHMARK_SET_VERSION,
+        repeat_index=repeat_index,
     )
+
+    recovery_probes = get_recovery_probes(prompt_family)
+    cross_domain_probes = get_cross_domain_probes(prompt_family)
+    if config.seed and config.shuffle_probe_order:
+        stable_seed = (
+            int(
+                hashlib.sha256(
+                    (
+                        f"{config.seed}|{persona.name}|{category}|{perturbation_prompt}|"
+                        f"{prompt_family}|{repeat_index}"
+                    ).encode()
+                ).hexdigest(),
+                16,
+            )
+            % 2**31
+        )
+        rng = random.Random(stable_seed)
+        recovery_probes = recovery_probes.copy()
+        cross_domain_probes = cross_domain_probes.copy()
+        rng.shuffle(recovery_probes)
+        rng.shuffle(cross_domain_probes)
 
     probe = persona.probe_questions[0]
     messages: list[dict[str, str]] = [{"role": "user", "content": probe}]
@@ -378,7 +444,7 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statem
 
     # ---- recovery phase (neutral probes) ----
     for i in range(config.recovery_probes):
-        rp = RECOVERY_PROBES[i % len(RECOVERY_PROBES)]
+        rp = recovery_probes[i % len(recovery_probes)]
         messages.append({"role": "user", "content": rp})
         resp = api.complete(persona.system_prompt, messages, config.max_tokens)
         messages.append({"role": "assistant", "content": resp})
@@ -422,7 +488,7 @@ def run_single_persona_trial(  # pylint: disable=too-many-locals,too-many-statem
 
     # ---- cross-domain probe phase ----
     for i in range(config.cross_domain_probes):
-        cd = CROSS_DOMAIN_PROBES[i % len(CROSS_DOMAIN_PROBES)]
+        cd = cross_domain_probes[i % len(cross_domain_probes)]
         messages.append({"role": "user", "content": cd})
         resp = api.complete(persona.system_prompt, messages, config.max_tokens)
         messages.append({"role": "assistant", "content": resp})
@@ -465,22 +531,44 @@ def run_benchmark(
     trials: list[TrialResult] = []
     personas = PERSONA_PAIRS[:1] if config.quick else PERSONA_PAIRS
     categories = CATEGORIES[:1] if config.quick else CATEGORIES
-    total = len(personas) * len(categories) * config.perturbations_per_category
+    families = [config.prompt_family]
+    if config.include_anchor_suite and config.prompt_family != "anchor":
+        families.append("anchor")
+    total = (
+        len(personas)
+        * len(categories)
+        * config.perturbations_per_category
+        * config.repeats_per_condition
+        * len(families)
+    )
     done = 0
 
     for p_idx, persona in enumerate(personas):
-        for cat in categories:
-            perturbations = generate_perturbations(
-                persona, cat, config.perturbations_per_category
-            )
-            for pert in perturbations:
-                trial = run_single_persona_trial(
-                    api, p_idx, cat, pert, config, cache=cache
-                )
-                trials.append(trial)
+        for family in families:
+            for cat in categories:
+                for repeat_idx in range(config.repeats_per_condition):
+                    perturbations = generate_perturbations(
+                        persona,
+                        cat,
+                        config.perturbations_per_category,
+                        family=family,
+                        seed=config.seed + repeat_idx if config.seed else 0,
+                    )
+                    for pert in perturbations:
+                        trial = run_single_persona_trial(
+                            api,
+                            p_idx,
+                            cat,
+                            pert,
+                            config,
+                            cache=cache,
+                            prompt_family=family,
+                            repeat_index=repeat_idx,
+                        )
+                        trials.append(trial)
 
-                done += 1
-                if progress_callback:
-                    progress_callback(done, total, persona.name, cat)
+                        done += 1
+                        if progress_callback:
+                            progress_callback(done, total, persona.name, cat)
 
     return trials

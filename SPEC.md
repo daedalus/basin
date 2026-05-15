@@ -18,6 +18,10 @@ ratio, and recovery half-life across multi-turn trajectories.
   and cross-domain probe phases
 - Computing a 6-axis radar profile per model
 - Procedurally generating perturbation prompts from persona definitions
+- Prompt-family split execution (`dev`, `heldout`, optional `anchor`)
+- Repeated trials per condition and confidence statistics
+- Validity metadata, robustness checks, classifier reliability reporting
+- Release quality gate pass/fail status for reporting readiness
 - Outputting results to stdout (formatted) and JSON
 
 **Not in scope:**
@@ -112,6 +116,11 @@ Configuration dataclass:
 - `api_key: str` (default "")
 - `base_url: str` (default "")
 - `extract_reasoning: bool` (default False)
+- `repeats_per_condition: int` (default 1)
+- `prompt_family: str` (default "dev")
+- `include_anchor_suite: bool` (default False)
+- `shuffle_probe_order: bool` (default False)
+- `model_revision: str` (default "")
 
 #### `basin_benchmark.runner.ModelAPI` (Protocol)
 
@@ -144,6 +153,43 @@ Factory function. Returns `AnthropicAPI` or `OpenAIAPI` based on `api_type`.
 #### `basin_benchmark.runner.run_benchmark(api, config, progress_callback=None) -> list[TrialResult]`
 
 Run the full benchmark across all personas and categories.
+
+---
+
+#### `basin_benchmark.evaluator.summarize_score_statistics(trials) -> dict[str, dict[str, float]]`
+
+Returns per-metric sample statistics:
+- `n`, `mean`, `variance`, `stddev`, `ci95_half_width`, `effect_size_midpoint`
+
+---
+
+#### `basin_benchmark.reliability.load_labeled_validation_examples(path="")`
+Loads labeled classifier validation examples.
+
+#### `basin_benchmark.reliability.evaluate_classifier_reliability(examples)`
+Computes classifier accuracy, per-class precision/recall, and confusion matrix.
+
+#### `basin_benchmark.reliability.sample_human_adjudication_candidates(trials, sample_size, seed)`
+Samples trial response snippets for periodic human review.
+
+---
+
+#### `basin_benchmark.robustness.run_robustness_checks(trials)`
+
+Computes:
+- threshold sensitivity
+- recovery-length sensitivity
+- turn-order stability proxy
+
+---
+
+#### `basin_benchmark.quality_gate.evaluate_quality_gate(...)`
+
+Evaluates release reporting readiness with explicit pass/fail criteria:
+- minimum sample size
+- repeated trials requirement
+- classifier accuracy floor
+- reproducibility metadata completeness
 
 ---
 
@@ -186,7 +232,21 @@ Exit codes:
 ```json
 {
   "config": { "api": "openai", "model": "big-pickle", ... },
+  "benchmark_framing": {
+    "benchmark_type": "relative",
+    "claim_tier": "exploratory_signal|claim_strength"
+  },
+  "validity": {
+    "sample_size": 105,
+    "run_config": { ... },
+    "model_version": { ... },
+    "per_score_caveats": { ... }
+  },
   "scores": { "persona_stability": 0.37, ... },
+  "score_statistics": { ... },
+  "robustness_checks": { ... },
+  "classifier_reliability": { ... },
+  "quality_gate": { "passed": false, ... },
   "trials": [
     {
       "persona": "helpful_assistant",

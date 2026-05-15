@@ -175,6 +175,14 @@ class CachedAPI:
     def count_tokens(self, text: str) -> int:
         return self._api.count_tokens(text)
 
+    def token_count_mode(self) -> str:
+        """Return token counting mode from wrapped API."""
+        return self._api.token_count_mode()
+
+    def token_count_is_approximate(self) -> bool:
+        """Return approximation flag from wrapped API."""
+        return self._api.token_count_is_approximate()
+
     @property
     def hits(self) -> int:
         return self._hits
