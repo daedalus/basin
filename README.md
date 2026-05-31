@@ -321,3 +321,14 @@ superficial optimization (Goodharting).
 ## License
 
 MIT
+
+## Citation
+```
+@misc{basin-benchmark,
+  author = {Darío Clavijo},
+  title = {Behavioral Attractor Stability & Inversion Network — A benchmark for measuring the Waluigi Effect in LLMs.},
+  year = {2026},
+  url = {https://github.com/daedalus/basin-benchmark/releases/tag/v0.1.3},
+  note = {Version 0.1.3}
+}
+```
